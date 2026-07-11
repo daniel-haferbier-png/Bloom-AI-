@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: bloomai-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: bloomai_dev_password
+      POSTGRES_DB: bloomai_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - bloomai-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./src/Backend
+      dockerfile: BloomAI.API/Dockerfile
+    container_name: bloomai-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=bloomai_dev;Username=postgres;Password=bloomai_dev_password"
+      Jwt__SecretKey: "your-super-secret-key-min-32-characters-long-1234567890!"
+      Jwt__Issuer: "BloomAI"
+      Jwt__Audience: "BloomAI-Users"
+      Jwt__ExpirationMinutes: "60"
+    ports:
+      - "7001:7001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bloomai-network
+
+volumes:
+  postgres_data:
+
+networks:
+  bloomai-network:
+    driver: bridge
